@@ -121,7 +121,67 @@ public class StudentController {
     }
 
     @PutMapping("/updateStudent")
-    public ResponseEntity<Student> updateStudent(@RequestBody Student stud) {
+    public ResponseEntity<?> updateStudent(@RequestBody Map<String, Object> requestData) {
+        try {
+            Map<String, Object> studentMap = (Map<String, Object>) requestData.get("student");
+            Map<String, Object> userMap = (Map<String, Object>) requestData.get("user");
+
+            if (studentMap == null || userMap == null) {
+                return ResponseEntity.badRequest().body("Error: Missing student or user data");
+            }
+
+            // ✅ Extract student ID from request
+            Long studentId = ((Number) studentMap.get("id")).longValue();
+
+            Optional<Student> studentOpt = studentRepository.findById(studentId);
+            if (studentOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Error: Student not found");
+            }
+
+            Student student = studentOpt.get();
+
+            // ✅ Update student details
+            student.setName((String) studentMap.get("name"));
+            student.setClassName((String) studentMap.get("className"));
+            student.setYear((String) studentMap.get("year"));
+            student.setRollNo((String) studentMap.get("rollNo"));
+
+            Student savedStudent = studentRepository.save(student);
+
+            // ✅ Update ID Card if exists
+            Optional<IdCard> idCardOpt = idCardRepository.findByStudentId(studentId);
+            if (idCardOpt.isPresent()) {
+                IdCard idCard = idCardOpt.get();
+                idCard.setExpiryDate(LocalDate.now().plusYears(1)); // Extend validity on update
+                idCardRepository.save(idCard);
+            }
+
+            User user = userRepository.findUserbyusername(savedStudent.getRollNo());
+            System.out.println("user: " + user.getId());
+            String username1 = (String) userMap.get("username");
+            String username = savedStudent.getRollNo();
+
+            System.out.println("username1: " + username1);
+            System.out.println("username: " + username);
+            user.setUsername(savedStudent.getRollNo()); // ✅ Ensure username matches rollNo
+            String pass = (String) userMap.get("password");
+            System.out.println("Pass: " + pass);
+            user.setPassword(pass); // ✅ Encrypt password
+
+            userRepository.save(user);
+            // }
+
+            return ResponseEntity
+                    .ok(Collections.singletonMap("message", "Student updated successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error: " + e.getMessage());
+        }
+    }
+
+
+    @PutMapping("/updateStudent1")
+    public ResponseEntity<Student> updateStudent1(@RequestBody Student stud) {
         Optional<Student> studentOpt = studentRepository.findById(stud.getId());
 
         if (studentOpt.isPresent()) {
@@ -166,6 +226,11 @@ public class StudentController {
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Error: Student not found");
         }
+    }
+
+    @GetMapping("/getUserbyusername/{username}")
+    public User getUserbyusername(@PathVariable("username") String username) {
+        return userRepository.findUserbyusername(username);
     }
 
 
